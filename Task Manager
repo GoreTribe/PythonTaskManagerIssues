@@ -1,0 +1,183 @@
+import tkinter as tk
+from tkinter import ttk
+import customtkinter as ctk
+
+class TaskManagementApp(ctk.CTkFrame):
+    def __init__(self, master):
+        super().__init__(master)
+        self.master = master
+        self.headers = ["Task", "Description", "Due Date"]  # Column headers for the table
+        self.data = []  # List to store the rows of data
+
+        # Create frames for buttons and tasks
+        self.button_frame = ctk.CTkFrame(self)  # Frame for buttons
+        self.button_frame.pack(fill="x", pady=10)
+
+        self.task_frame = ctk.CTkFrame(self)  # Frame for the task table
+        self.task_frame.pack(fill="both", expand=True)
+
+        self.create_buttons()  # Create buttons
+        self.create_table()  # Create table headers
+
+        self.add_row()  # Add a default row when the program starts
+
+        print("Initialization complete. Headers:", self.headers)
+        print("Initial data:", self.data)
+
+    def create_buttons(self):
+        # Create and place buttons in the button frame
+        self.lock_button = ctk.CTkButton(self.button_frame, text="Lock", command=self.lock_rows)
+        self.lock_button.grid(row=0, column=0, padx=5)
+
+        self.unlock_button = ctk.CTkButton(self.button_frame, text="Unlock", command=self.unlock_rows)
+        self.unlock_button.grid(row=0, column=1, padx=5)
+
+        self.delete_button = ctk.CTkButton(self.button_frame, text="Delete", command=self.delete_rows)
+        self.delete_button.grid(row=0, column=2, padx=5)
+
+        self.add_row_button = ctk.CTkButton(self.button_frame, text="Add Task", command=self.add_row)
+        self.add_row_button.grid(row=0, column=3, padx=5)
+
+        self.save_button = ctk.CTkButton(self.button_frame, text="Save Tasks", command=self.save_tasks)
+        self.save_button.grid(row=0, column=4, padx=5)
+
+        self.view_button = ctk.CTkButton(self.button_frame, text="View Saved Tasks", command=self.view_tasks)
+        self.view_button.grid(row=0, column=5, padx=5)
+
+        self.remove_button = ctk.CTkButton(self.button_frame, text="Remove Task", command=self.remove_checked_rows)
+        self.remove_button.grid(row=0, column=6, padx=5)
+
+    def create_table(self):
+        # Create table headers
+        for col, header in enumerate(self.headers):
+            label = ctk.CTkLabel(self.task_frame, text=header)
+            label.grid(row=0, column=col+1, sticky="nsew")
+
+    def add_row(self):
+        # Add a new row to the table
+        row = []
+
+        checkbox = ctk.CTkCheckBox(self.task_frame)  # Checkbox for selecting the row
+        checkbox.grid(row=len(self.data) + 1, column=0, sticky="nsew")
+
+        row.append(checkbox)
+        for col in range(len(self.headers)):
+            entry = ctk.CTkEntry(self.task_frame)  # Entry fields for task details
+            entry.grid(row=len(self.data) + 1, column=col+1, sticky="nsew", padx=5, pady=5)
+            entry.bind("<Return>", self.check_last_entry)  # Bind Enter key to check_last_entry
+            row.append(entry)
+        self.data.append(row)
+
+        print("Added row. Current data:", self.data)
+
+    def check_last_entry(self, event):
+        # Check if the last row is empty and delete it if so, otherwise add a new row
+        last_row = self.data[-1]
+        if all(entry.get() == "" for entry in last_row[1:]):
+            self.delete_row(len(self.data) - 1)
+        else:
+            self.add_row()
+
+    def lock_rows(self):
+        # Lock the selected rows to make them read-only
+        for row in self.data:
+            if row[0].get():
+                for entry in row[1:]:
+                    entry.configure(state="readonly")
+
+    def unlock_rows(self):
+        # Unlock the selected rows to make them editable
+        for row in self.data:
+            if row[0].get():
+                for entry in row[1:]:
+                    entry.configure(state="normal")
+
+    def delete_rows(self):
+        # Clear input data in checked rows
+        any_checked = False
+        for row in self.data:
+            if row[0].get():  # Check if the checkbox is selected
+                any_checked = True
+                for entry in row[1:]:
+                    entry.delete(0, tk.END)
+
+        if not any_checked:
+            print("No rows checked for deletion.")
+        else:
+            print("Cleared input data in checked rows.")
+
+    def remove_checked_rows(self):
+        # Remove the rows that are checked
+        any_checked = False
+        rows_to_remove = []
+
+        # Identify rows to remove
+        for row_index, row in enumerate(self.data):
+            if row[0].get():  # Check if the checkbox is selected
+                any_checked = True
+                rows_to_remove.append(row_index)
+
+        if not any_checked:
+            print("No rows checked for removal.")
+        else:
+            # Remove identified rows
+            for row_index in reversed(rows_to_remove):
+                row = self.data.pop(row_index)
+                for widget in row:
+                    widget.grid_forget()
+                    widget.destroy()
+            print(f"Removed rows: {rows_to_remove}")
+
+        self.refresh_table()
+
+    def refresh_table(self):
+        # Refresh the table to update the display
+        print("Refreshing table...")
+        for widget in self.task_frame.winfo_children():
+            widget.destroy()
+        self.create_table()
+        for row_index, row in enumerate(self.data):
+            row[0].grid(row=row_index+1, column=0, sticky="nsew")
+            for col_index, entry in enumerate(row[1:]):
+                entry.grid(row=row_index+1, column=col_index+1, sticky="nsew")
+
+    def save_tasks(self):
+        # Save the tasks to a file
+        with open("tasks.txt", "w") as file:
+            for row in self.data:
+                values = [entry.get() for entry in row[1:]]
+                file.write(",".join(values) + "\n")
+        print("Tasks saved.")
+
+    def view_tasks(self):
+        # View the saved tasks in a new window
+        self.new_window = ctk.CTkToplevel(self)
+        self.new_window.title("View Saved Tasks")
+        self.new_window.geometry("600x400")
+        self.new_window.transient(self.master)  # Ensure the new window appears in front of the main window
+        self.new_window.grab_set()  # Make the new window modal
+
+        self.tree = ttk.Treeview(self.new_window, columns=self.headers, show="headings")
+        for header in self.headers:
+            self.tree.heading(header, text=header)
+        self.tree.pack(fill="both", expand=True)
+
+        self.load_tasks()
+
+    def load_tasks(self):
+        # Load the tasks from the file and display them in the treeview
+        with open("tasks.txt", "r") as file:
+            for line in file:
+                values = line.strip().split(",")
+                self.tree.insert("", "end", values=values)
+
+if __name__ == "__main__":
+    ctk.set_appearance_mode("dark")
+    root = ctk.CTk()
+    root.title("Main Application")
+    root.geometry("800x600")
+
+    task_management_app = TaskManagementApp(root)
+    task_management_app.pack(fill="both", expand=True)
+
+    root.mainloop()
